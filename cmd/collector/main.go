@@ -8,26 +8,19 @@ import (
 	"os"
 	"time"
 
+	"github.com/BatuhanAri/go-log-harvester/internal/models"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/joho/godotenv"
 	"github.com/nats-io/nats.go"
 )
 
-// Config yapısı: Tüm ayarlar tek bir yerde
+// Config yapısı: Bu servise özel ayarlar
 type Config struct {
 	ClickHouseAddr string
 	ClickHouseDB   string
 	ClickHouseUser string
 	ClickHousePass string
 	NatsURL        string
-}
-
-// LogData yapısı (Değişmedi)
-type LogData struct {
-	Service string `json:"service"`
-	Level   string `json:"level"`
-	Msg     string `json:"msg"`
-	TS      string `json:"ts"`
 }
 
 const (
@@ -37,19 +30,18 @@ const (
 
 // Ortam değişkenlerini yükleyen fonksiyon
 func LoadConfig() Config {
-	// .env dosyasını yüklemeyi dene (Prod ortamında dosya olmayabilir, hata yok sayılabilir)
 	_ = godotenv.Load()
 
 	return Config{
 		ClickHouseAddr: getEnv("CLICKHOUSE_ADDR", "127.0.0.1:9000"),
 		ClickHouseDB:   getEnv("CLICKHOUSE_DB", "default"),
 		ClickHouseUser: getEnv("CLICKHOUSE_USER", "default"),
-		ClickHousePass: getEnv("CLICKHOUSE_PASSWORD", ""), // Varsayılan boş olmamalı aslında
+		ClickHousePass: getEnv("CLICKHOUSE_PASSWORD", ""),
 		NatsURL:        getEnv("NATS_URL", nats.DefaultURL),
 	}
 }
 
-// Yardımcı fonksiyon: Değişken yoksa varsayılanı dön
+// Yardımcı fonksiyon
 func getEnv(key, fallback string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
@@ -58,10 +50,10 @@ func getEnv(key, fallback string) string {
 }
 
 func main() {
-	// 1. Ayarları Yükle
+	// Ayarları Yükle
 	cfg := LoadConfig()
 
-	// 2. ClickHouse Bağlantısı (Config'den)
+	// ClickHouse Bağlantısı
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{cfg.ClickHouseAddr},
 		Auth: clickhouse.Auth{
@@ -73,28 +65,27 @@ func main() {
 	if err != nil {
 		log.Fatalf("ClickHouse config hatası: %v", err)
 	}
-	
-	// Bağlantıyı test et (Ping)
+
+	// Bağlantıyı test et
 	if err := conn.Ping(context.Background()); err != nil {
 		log.Fatalf("ClickHouse sunucusuna ulaşılamıyor: %v", err)
 	}
 
 	initDB(conn)
 
-	// 3. NATS Bağlantısı (Config'den)
+	// NATS Bağlantısı
 	nc, err := nats.Connect(cfg.NatsURL)
 	if err != nil {
 		log.Fatal("NATS bağlanamadı:", err)
 	}
 	defer nc.Close()
 
-	// ... (Geri kalan kod aynı: Buffer, Channel, Loop) ...
-	// Kodun geri kalanını aynen koruyabilirsin, sadece mantığı değiştirdik.
-	// Aşağıya kısa versiyonunu ekliyorum:
-	
-	logChannel := make(chan LogData, 2000)
+	// Kanal artık models.LogData taşıyor
+	logChannel := make(chan models.LogData, 2000)
+
+	// Subscribe
 	_, _ = nc.Subscribe("logs.*", func(m *nats.Msg) {
-		var data LogData
+		var data models.LogData // models paketini kullanıyoruz
 		if err := json.Unmarshal(m.Data, &data); err == nil {
 			if data.TS == "" {
 				data.TS = time.Now().Format(time.RFC3339)
@@ -107,9 +98,9 @@ func main() {
 	runBatchProcessor(conn, logChannel)
 }
 
-// Batch Processor'ı ana fonksiyondan ayırdım temiz görünsün diye
-func runBatchProcessor(conn clickhouse.Conn, ch <-chan LogData) {
-	batch := make([]LogData, 0, BatchSize)
+// Batch Processor
+func runBatchProcessor(conn clickhouse.Conn, ch <-chan models.LogData) {
+	batch := make([]models.LogData, 0, BatchSize) // Slice türü güncellendi
 	ticker := time.NewTicker(FlushInterval)
 
 	for {
@@ -118,18 +109,17 @@ func runBatchProcessor(conn clickhouse.Conn, ch <-chan LogData) {
 			batch = append(batch, logEntry)
 			if len(batch) >= BatchSize {
 				saveToClickHouse(conn, batch)
-				batch = make([]LogData, 0, BatchSize)
+				batch = make([]models.LogData, 0, BatchSize)
 			}
 		case <-ticker.C:
 			if len(batch) > 0 {
 				saveToClickHouse(conn, batch)
-				batch = make([]LogData, 0, BatchSize)
+				batch = make([]models.LogData, 0, BatchSize)
 			}
 		}
 	}
 }
 
-// (initDB ve saveToClickHouse fonksiyonları önceki ile aynı kalacak)
 func initDB(conn clickhouse.Conn) {
 	query := `
 	CREATE TABLE IF NOT EXISTS app_logs (
@@ -143,7 +133,7 @@ func initDB(conn clickhouse.Conn) {
 	conn.Exec(context.Background(), query)
 }
 
-func saveToClickHouse(conn clickhouse.Conn, logs []LogData) {
+func saveToClickHouse(conn clickhouse.Conn, logs []models.LogData) {
 	ctx := context.Background()
 	batch, _ := conn.PrepareBatch(ctx, "INSERT INTO app_logs")
 	for _, l := range logs {
