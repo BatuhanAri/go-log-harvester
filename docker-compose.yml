@@ -23,16 +23,12 @@ services:
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
 
-  # --- YENİ EKLENEN KISIM ---
   grafana:
     image: grafana/grafana:latest
     ports:
       - "3000:3000"
     environment:
-      # ClickHouse eklentisini açılışta otomatik indir
       - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
-      # Şifre sormadan admin girişi (Geliştirme ortamı için)
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD} 
     depends_on:
       - clickhouse
-  # --------------------------
