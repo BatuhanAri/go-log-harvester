@@ -1,4 +1,4 @@
-# Go Log Harvester 🚀
+# Go Log Harvester 
 
 A high-performance, asynchronous log collection system built with **Go**, **NATS**, **ClickHouse**, and **Grafana**.
 
@@ -12,7 +12,7 @@ A high-performance, asynchronous log collection system built with **Go**, **NATS
 * **Storage:** ClickHouse for columnar storage and high compression.
 * **Visualization:** Grafana for real-time observability.
 
-## 🛠 Tech Stack
+## Tech Stack
 
 * **Language:** Golang (1.21+)
 * **Messaging:** NATS
@@ -20,7 +20,7 @@ A high-performance, asynchronous log collection system built with **Go**, **NATS
 * **Visualization:** Grafana
 * **Infrastructure:** Docker & Docker Compose
 
-## 🚀 How to Run
+## How to Run
 
 1.  **Clone the repo**
     ```bash
@@ -52,5 +52,5 @@ A high-performance, asynchronous log collection system built with **Go**, **NATS
 6.  **Visualize**
     Go to `http://localhost:3000` (User: admin/admin).
 
-## 📸 Screenshots
+## Screenshots
 *(Buraya Grafana'dan aldığın bir ekran görüntüsünü koyarsan harika olur)*
