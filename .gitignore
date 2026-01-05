@@ -1,0 +1,56 @@
+# ---- Go build artifacts ----
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Binaries and build outputs
+*.test
+*.out
+*.a
+*.o
+
+# Common build dirs (adjust if you use different ones)
+bin/
+dist/
+build/
+out/
+tmp/
+temp/
+
+# Go coverage & profiling
+*.cover
+coverage*.out
+*.prof
+*.pprof
+
+# ---- Go workspace (Go 1.18+) ----
+go.work
+go.work.sum
+
+# ---- Vendor (uncomment if you DO NOT want to commit vendor/) ----
+# vendor/
+
+# ---- IDE / editor ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ---- OS / misc ----
+Thumbs.db
+
+# ---- Logs ----
+*.log
+
+# ---- Env / secrets (don’t commit these) ----
+.env
+.env.*
+*.key
+*.pem
+
+# ---- Tooling caches (optional) ----
+.golangci-lint/
