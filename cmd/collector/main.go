@@ -5,53 +5,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
-	"time"
+	"time" 
 
+	
+	"github.com/BatuhanAri/go-log-harvester/internal/config"
 	"github.com/BatuhanAri/go-log-harvester/internal/models"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/joho/godotenv"
 	"github.com/nats-io/nats.go"
 )
-
-// Config yapısı: Bu servise özel ayarlar
-type Config struct {
-	ClickHouseAddr string
-	ClickHouseDB   string
-	ClickHouseUser string
-	ClickHousePass string
-	NatsURL        string
-}
 
 const (
 	BatchSize     = 1000
 	FlushInterval = 5 * time.Second
 )
 
-// Ortam değişkenlerini yükleyen fonksiyon
-func LoadConfig() Config {
-	_ = godotenv.Load()
-
-	return Config{
-		ClickHouseAddr: getEnv("CLICKHOUSE_ADDR", "127.0.0.1:9000"),
-		ClickHouseDB:   getEnv("CLICKHOUSE_DB", "default"),
-		ClickHouseUser: getEnv("CLICKHOUSE_USER", "default"),
-		ClickHousePass: getEnv("CLICKHOUSE_PASSWORD", ""),
-		NatsURL:        getEnv("NATS_URL", nats.DefaultURL),
-	}
-}
-
-// Yardımcı fonksiyon
-func getEnv(key, fallback string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
-	}
-	return fallback
-}
-
 func main() {
-	// Ayarları Yükle
-	cfg := LoadConfig()
+	cfg := config.LoadConfig()
 
 	// ClickHouse Bağlantısı
 	conn, err := clickhouse.Open(&clickhouse.Options{
@@ -80,12 +50,12 @@ func main() {
 	}
 	defer nc.Close()
 
-	// Kanal artık models.LogData taşıyor
+	// Log Kanalı
 	logChannel := make(chan models.LogData, 2000)
 
 	// Subscribe
 	_, _ = nc.Subscribe("logs.*", func(m *nats.Msg) {
-		var data models.LogData // models paketini kullanıyoruz
+		var data models.LogData
 		if err := json.Unmarshal(m.Data, &data); err == nil {
 			if data.TS == "" {
 				data.TS = time.Now().Format(time.RFC3339)
@@ -100,7 +70,7 @@ func main() {
 
 // Batch Processor
 func runBatchProcessor(conn clickhouse.Conn, ch <-chan models.LogData) {
-	batch := make([]models.LogData, 0, BatchSize) // Slice türü güncellendi
+	batch := make([]models.LogData, 0, BatchSize)
 	ticker := time.NewTicker(FlushInterval)
 
 	for {
@@ -120,16 +90,17 @@ func runBatchProcessor(conn clickhouse.Conn, ch <-chan models.LogData) {
 	}
 }
 
+// Veritabanı işlemleri
 func initDB(conn clickhouse.Conn) {
 	query := `
-	CREATE TABLE IF NOT EXISTS app_logs (
-		ts DateTime,
-		service String,
-		level String,
-		msg String
-	) ENGINE = MergeTree()
-	ORDER BY ts
-	`
+    CREATE TABLE IF NOT EXISTS app_logs (
+        ts DateTime,
+        service String,
+        level String,
+        msg String
+    ) ENGINE = MergeTree()
+    ORDER BY ts
+    `
 	conn.Exec(context.Background(), query)
 }
 
