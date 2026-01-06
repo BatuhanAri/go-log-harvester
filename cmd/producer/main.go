@@ -10,7 +10,6 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-// Göndereceğimiz veri formatı
 type LogData struct {
 	Service string `json:"service"`
 	Level   string `json:"level"`
@@ -19,8 +18,7 @@ type LogData struct {
 }
 
 func main() {
-	// NATS'a bağlan (Localhost)
-	nc, err := nats.Connect(nats.DefaultURL)
+	nc, err := nats.Connect("nats://localhost:4222")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -28,12 +26,18 @@ func main() {
 
 	services := []string{"auth-service", "payment-api", "user-db", "frontend"}
 	levels := []string{"INFO", "WARN", "ERROR", "DEBUG"}
-	messages := []string{"Bağlantı koptu", "Kullanıcı giriş yaptı", "Ödeme alındı", "Cache temizlendi", "Timeout oluştu"}
+	messages := []string{
+		"Bağlantı koptu",
+		"Kullanıcı giriş yaptı",
+		"Ödeme alındı",
+		"Cache temizlendi",
+		"Timeout oluştu",
+	}
 
-	fmt.Println("Log saldırısı başlıyor... (Çıkmak için Ctrl+C)")
+	burstSize := 10000
+	start := time.Now()
 
-	for {
-		// Rastgele veri üret
+	for i := 0; i < burstSize; i++ {
 		logEntry := LogData{
 			Service: services[rand.Intn(len(services))],
 			Level:   levels[rand.Intn(len(levels))],
@@ -41,16 +45,14 @@ func main() {
 			TS:      time.Now().Format(time.RFC3339),
 		}
 
-		// JSON'a çevir
 		data, _ := json.Marshal(logEntry)
-
-		// NATS'a fırlat (Konu: logs.herhangi-bir-sey)
-		subject := "logs.test"
-		nc.Publish(subject, data)
-
-		fmt.Printf("[GÖNDERİLDİ] %s -> %s\n", subject, logEntry.Msg)
-
-		// Biraz bekle (Çok hızlı akmasın, takip edelim)
-		time.Sleep(500 * time.Millisecond)
+		nc.Publish("logs.test", data)
 	}
+
+	nc.Flush()
+
+	fmt.Printf("✅ Burst tamamlandı: %d log, süre: %s\n",
+		burstSize,
+		time.Since(start),
+	)
 }
