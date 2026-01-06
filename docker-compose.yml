@@ -1,13 +1,16 @@
-version: '3.8'
+version: "3.8"
 
 services:
   nats:
-    image: nats:latest
+    image: nats:2.10
+    command: ["-m", "8222"]   # monitoring port
     ports:
       - "4222:4222"
-      
+      - "8222:8222"
+    restart: unless-stopped
+
   clickhouse:
-    image: clickhouse/clickhouse-server
+    image: clickhouse/clickhouse-server:24.8
     ports:
       - "8123:8123"
       - "9000:9000"
@@ -18,17 +21,52 @@ services:
     env_file:
       - .env
     environment:
-      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --host localhost --query 'SELECT 1' >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  collector:
+    build:
+      context: .
+      dockerfile: Dockerfile.collector
+    env_file:
+      - .env
+    environment:
+      NATS_URL: nats://nats:4222
+      CLICKHOUSE_ADDR: clickhouse:9000
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD} 
+    command: ["-subject", "logs.*"]
+    depends_on:
+      - nats
+      - clickhouse
+    network_mode: host
+
+
 
   grafana:
     image: grafana/grafana:latest
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
-      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD} 
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
     depends_on:
-      - clickhouse
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  clickhouse_data:

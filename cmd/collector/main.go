@@ -29,7 +29,7 @@ const (
 )
 
 func main() {
-	// ---- Flags (prod’da şart)
+	// ---- Flags
 	envFile := flag.String("env", "", "optional .env path (if set, load failure is fatal)")
 	subject := flag.String("subject", "logs.*", "NATS subject to subscribe")
 	flag.Parse()
@@ -45,12 +45,9 @@ func main() {
 	}
 
 	// ---- ClickHouse connect + ping
-	conn, err := openClickHouse(cfg)
+	conn, err := waitForClickHouse(ctx, cfg, 60*time.Second)
 	if err != nil {
-		log.Fatalf("clickhouse connect failed: %v", err)
-	}
-	if err := conn.Ping(ctx); err != nil {
-		log.Fatalf("clickhouse ping failed: %v", err)
+		log.Fatalf("clickhouse not ready: %v", err)
 	}
 	if err := initDB(ctx, conn); err != nil {
 		log.Fatalf("clickhouse init failed: %v", err)
@@ -164,6 +161,37 @@ func openClickHouse(cfg config.Config) (driver.Conn, error) {
 		return nil, err
 	}
 	return conn, nil
+}
+
+// --- Wait for ClickHouse to be ready with backoff
+func waitForClickHouse(ctx context.Context, cfg config.Config, maxWait time.Duration) (driver.Conn, error) {
+	deadline := time.NewTimer(maxWait)
+	defer deadline.Stop()
+
+	backoff := 500 * time.Millisecond
+
+	for {
+		// context cancelled?
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-deadline.C:
+			return nil, fmt.Errorf("timeout waiting for clickhouse (%s)", maxWait)
+		default:
+		}
+
+		conn, err := openClickHouse(cfg)
+		if err == nil {
+			if pingErr := conn.Ping(ctx); pingErr == nil {
+				return conn, nil
+			}
+		}
+
+		time.Sleep(backoff)
+		if backoff < 5*time.Second {
+			backoff *= 2
+		}
+	}
 }
 
 // --- Batch processor: flush by size or interval, flush remaining on exit
