@@ -51,6 +51,3 @@ A high-performance, asynchronous log collection system built with **Go**, **NATS
 
 6.  **Visualize**
     Go to `http://localhost:3000` (User: admin/admin).
-
-## 📸 Screenshots
-*(Buraya Grafana'dan aldığın bir ekran görüntüsünü koyarsan harika olur)*
