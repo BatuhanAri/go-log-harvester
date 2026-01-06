@@ -45,12 +45,11 @@ services:
       CLICKHOUSE_ADDR: clickhouse:9000
       CLICKHOUSE_DB: ${CLICKHOUSE_DB}
       CLICKHOUSE_USER: ${CLICKHOUSE_USER}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD} 
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
     command: ["-subject", "logs.*"]
     depends_on:
       - nats
       - clickhouse
-    network_mode: host
 
 
 
