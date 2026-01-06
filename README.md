@@ -1,4 +1,4 @@
-# Go Log Harvester 
+<img width="1163" height="368" alt="Screenshot from 2026-01-06 09-40-47" src="https://github.com/user-attachments/assets/439843b1-5d78-4028-83c1-f1fd1ef84221" /># Go Log Harvester 
 
 A high-performance, asynchronous log collection system built with **Go**, **NATS**, **ClickHouse**, and **Grafana**.
 
@@ -52,5 +52,5 @@ A high-performance, asynchronous log collection system built with **Go**, **NATS
 6.  **Visualize**
     Go to `http://localhost:3000` (User: admin/admin).
 
-## Screenshots
-*(Buraya Grafana'dan aldığın bir ekran görüntüsünü koyarsan harika olur)*
+
+
